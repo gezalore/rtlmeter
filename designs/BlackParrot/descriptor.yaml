@@ -412,12 +412,12 @@ execute:
     postHook: tests/post.bash
     args:
       - +init_mem=prog.mem
+    tags:
+      - hier
   tests:
     hello:
       files:
         - tests/hello/prog.mem
-      tags:
-        - hier
     dhry:
       files:
         - tests/dhry/prog.mem
