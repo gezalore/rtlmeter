@@ -41,7 +41,7 @@ of a Python, or a required package).
 Verilator is picked up from the shell ``$PATH``. To check you have
 ``verilator`` available, run ``which verilator``. Otherwise please see the
 `Verilator manual <https://verilator.org/guide/latest/install.html>`_ for
-instructions on how to install Verilator. Verilator 5.002 or later is
+instructions on how to install Verilator. Verilator 5.024 or later is
 required.
 
 Invocation
