@@ -1,0 +1,68 @@
+origin:
+  - repository: https://github.com/olofk/serv.git
+    revision: 7d9cde4e6ca4f4c84d7512a752a4c187537dd373
+    licenses:
+      - LICENSE
+
+compile:
+  verilogSourceFiles:
+    - bench/uart_decoder.v
+    - bench/servant_tb.v
+    - bench/servant_sim.v
+    - servant/servant_mux.v
+    - servant/servant_ram.v
+    - servant/servant_gpio.v
+    - servant/servant_timer.v
+    - servant/servant.v
+    - rtl/serv_debug.v
+    - rtl/serv_rf_ram.v
+    - rtl/serv_rf_top.v
+    - rtl/serv_immdec.v
+    - rtl/serv_aligner.v
+    - rtl/serv_ctrl.v
+    - rtl/serv_bufreg2.v
+    - rtl/serv_decode.v
+    - rtl/serv_rf_if.v
+    - rtl/serv_alu.v
+    - rtl/serv_bufreg.v
+    - rtl/serv_state.v
+    - rtl/serv_mem_if.v
+    - rtl/serv_rf_ram_if.v
+    - rtl/serv_csr.v
+    - rtl/serv_top.v
+    - rtl/serv_compdec.v
+    - servile/servile_rf_mem_if.v
+    - servile/servile_mux.v
+    - servile/servile_arbiter.v
+    - servile/servile.v
+  topModule: servant_tb
+  mainClock: servant_tb.wb_clk
+
+execute:
+  tests:
+    hello:
+      args:
+        - "+firmware=hello_uart.hex"
+      files:
+        - sw/hello_uart.hex
+    phil:
+      args:
+        - "+firmware=zephyr_phil.hex"
+      files:
+        - sw/zephyr_phil.hex
+
+configurations:
+  serv:
+    execute:
+      tests:
+        phil:
+          args:
+            - "+uart_max_lines=100"
+  qerv:
+    compile:
+      verilatorArgs: [-Gwidth=4]
+    execute:
+      tests:
+        phil:
+          args:
+            - "+uart_max_lines=150"
