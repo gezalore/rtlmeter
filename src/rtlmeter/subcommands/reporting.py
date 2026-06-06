@@ -81,30 +81,12 @@ _ASCII_TABLE_FORMAT: Final = tabulate.TableFormat(
     with_header_hide=None,
 )
 
-_GITHUB_TABLE_FORMAT: Final = tabulate.TableFormat(
-    lineabove=tabulate.Line("|", "-", "|", "|"),
-    linebelowheader=tabulate.Line("|", "-", "|", "|"),
-    linebetweenrows=None,
-    linebelow=None,
-    headerrow=tabulate.DataRow("|", "|", "|"),
-    datarow=tabulate.DataRow("|", "|", "|"),
-    padding=1,
-    with_header_hide=["lineabove"],
-)
 
-
-def printTable(table: List[List[str]], format: misc.Format, **kwargs) -> None:
-    if format == "ascii":
-        print(tabulate.tabulate(table, tablefmt=_ASCII_TABLE_FORMAT, **kwargs))
-    elif format == "github":
-        print(tabulate.tabulate(table, tablefmt=_GITHUB_TABLE_FORMAT, **kwargs))
-    else:
-        raise RuntimeError("unreachable")
+def printTable(table: List[List[str]], **kwargs) -> None:
+    print(tabulate.tabulate(table, tablefmt=_ASCII_TABLE_FORMAT, **kwargs))
 
 
 def reportMain(args: argparse.Namespace) -> None:
-    misc.setFormat(args.format)
-
     allData = metrics.load(args.dataPath)
 
     cases = sorted(set(args.cases + [_.rpartition(":")[0] for _ in args.cases]))
@@ -163,7 +145,6 @@ def reportMain(args: argparse.Namespace) -> None:
         print(misc.styled(step, style="bold"))
         printTable(
             table,
-            args.format,
             headers=headers,
             disable_numparse=True,
             colalign=["left"] + ["right"] * (len(headers) - 1),
@@ -171,8 +152,6 @@ def reportMain(args: argparse.Namespace) -> None:
 
 
 def compareMain(args: argparse.Namespace) -> None:
-    misc.setFormat(args.format)
-
     aAllData = metrics.load(args.aDataPath)
     bAllData = metrics.load(args.bDataPath)
 
@@ -182,14 +161,14 @@ def compareMain(args: argparse.Namespace) -> None:
         print("No cases specified exist in both runs")
         sys.exit(0)
 
-    gainStyle: Any = ("redBold", 0.9, "red", 0.95, "plain", 1.05, "green", 1.1, "greenBold")
+    report = {}
+
     for step in args.steps:
+        report[step] = {}
         for metric in args.metrics:
             metricDef = metrics.metricDef(metric)
             # Build the table
             table: List[List[str]] = []
-            gains = []
-            sigGains = []
             for case in commonCases:
                 aCaseData = aAllData[case]
                 bCaseData = bAllData[case]
@@ -219,10 +198,8 @@ def compareMain(args: argparse.Namespace) -> None:
                     continue
 
                 gain = bMean / aMean if metricDef.higherIsBetter else aMean / bMean
-                gainStr = misc.styleByInterval(f"{gain:.2f}x", gain, *gainStyle)
-                gains.append(gain)
 
-                pValStr = ""
+                pVal: float | None = None
                 if aN >= 2 and bN >= 2:
                     # Need to handle degenerate cases where all samples are the same.
                     # This can happen with coarse granularity metrics like memory usage.
@@ -241,37 +218,87 @@ def compareMain(args: argparse.Namespace) -> None:
                         pVal = scipy.stats.ttest_ind(
                             aData, bData, equal_var=False, nan_policy="raise"
                         ).pvalue
-                    pValStr = misc.styleByInterval(
-                        f"{pVal:.2f}",
-                        pVal,
-                        "greenBold",
-                        0.025,
-                        "green",
-                        0.05,
-                        "plain",
-                        0.1,
-                        "red",
-                        0.2,
-                        "redBold",
-                    )
-                    if pVal < 0.05:
-                        sigGains.append(gain)
 
                 table.append(
                     [
                         case,
-                        str(len(aData)),
-                        str(len(bData)),
-                        formatMeanAndConfidenceInterval(*meanAndConfidenceInterval(aData)),
-                        formatMeanAndConfidenceInterval(*meanAndConfidenceInterval(bData)),
-                        gainStr,
-                        pValStr,
+                        len(aData),
+                        len(bData),
+                        meanAndConfidenceInterval(aData),
+                        meanAndConfidenceInterval(bData),
+                        gain,
+                        pVal,
                     ]
                 )
 
             if not table:
                 continue
 
+            # Construct the record for this step and metric
+            hilo = (
+                "should be equal"
+                if metricDef.higherIsBetter is None
+                else "higher is better"
+                if metricDef.higherIsBetter
+                else "lower is better"
+            )
+
+            report[step][metric] = {
+                "title": f"{step} - {metricDef.header} [{metricDef.unit}] - {hilo}",
+                "header": [
+                    "Case",
+                    "#A",
+                    "#B",
+                    "Mean A",
+                    "Mean B",
+                    f"Gain ({'B/A' if metricDef.higherIsBetter else 'A/B'})",
+                    "p-value",
+                ],
+                "table": table,
+            }
+
+    # If requesting JSON output, just print it and exit
+    if args.format == "json":
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return
+
+    # Otherwise print the report to terminal
+    gainStyle: Any = ("redBold", 0.9, "red", 0.95, "plain", 1.05, "green", 1.1, "greenBold")
+    pValStyle: Any = ("greenBold", 0.025, "green", 0.05, "plain", 0.1, "red", 0.2, "redBold")
+
+    for step in args.steps:
+        for metric in args.metrics:
+            record = report[step][metric]
+            table = []
+            gains = []
+            sigGains = []
+
+            # Create display table
+            for case, aN, bN, mcA, mcB, gain, pVal in record["table"]:
+                gains.append(gain)
+                if pVal is not None and pVal < 0.05:
+                    sigGains.append(gain)
+
+                gainStr = misc.styleByInterval(f"{gain:.2f}x", gain, *gainStyle)
+                pValStr = (
+                    misc.styleByInterval(f"{pVal:.2f}", pVal, *pValStyle)
+                    if pVal is not None
+                    else ""
+                )
+
+                table.append(
+                    [
+                        case,
+                        str(aN),
+                        str(bN),
+                        formatMeanAndConfidenceInterval(*mcA),
+                        formatMeanAndConfidenceInterval(*mcB),
+                        gainStr,
+                        pValStr,
+                    ]
+                )
+
+            # Add summary rows
             table.append(tabulate.SEPARATING_LINE)
             meanGain = scipy.stats.gmean(gains)
             meanGainStr = misc.styleByInterval(f"{meanGain:.2f}x", meanGain, *gainStyle)
@@ -282,39 +309,17 @@ def compareMain(args: argparse.Namespace) -> None:
                 table.append(["Geometric mean - pVal < 0.05", "", "", "", "", meanGainStr, ""])
 
             # Print the table
-            hilo = (
-                "should be equal"
-                if metricDef.higherIsBetter is None
-                else "higher is better"
-                if metricDef.higherIsBetter
-                else "lower is better"
-            )
             print()
-            print(
-                misc.styled(
-                    f"{step} - {metricDef.header} [{metricDef.unit}] - {hilo}", style="bold"
-                )
-            )
+            print(misc.styled(record["title"], style="bold"))
             printTable(
                 table,
-                args.format,
-                headers=[
-                    "Case",
-                    "#A",
-                    "#B",
-                    "Mean A",
-                    "Mean B",
-                    f"Gain ({'B/A' if metricDef.higherIsBetter else 'A/B'})",
-                    "p-value",
-                ],
+                headers=record["header"],
                 disable_numparse=True,
                 colalign=["left"] + ["right"] * (len(table[0]) - 1),
             )
 
 
 def rawdataMain(args: argparse.Namespace) -> None:
-    misc.setFormat(args.format)
-
     allData = metrics.load(args.dataPath)
 
     cases = sorted(set(args.cases + [_.rpartition(":")[0] for _ in args.cases]))
@@ -378,7 +383,6 @@ def rawdataMain(args: argparse.Namespace) -> None:
             print(misc.styled(f"{step} - {metricDef.header} [{metricDef.unit}]", style="bold"))
             printTable(
                 table,
-                args.format,
                 headers=["Case", "Value", "Z-score", "Outlier", "Metrics file"],
                 disable_numparse=True,
                 colalign=["left", "right", "right", "right", "left"],
@@ -498,13 +502,6 @@ def addCommonArgs(parser: argparse.ArgumentParser) -> None:
         metavar="CASES",
         default="*",
     )
-    parser.add_argument(
-        "--format",
-        help="Output formatting, one of: %(choices)s",
-        metavar="FMT",
-        choices=["ascii", "github"],
-        default="ascii",
-    )
 
 
 def addSubcommands(subparsers) -> None:
@@ -550,6 +547,13 @@ def addSubcommands(subparsers) -> None:
     )
     compareParser.set_defaults(entryPoint=compareMain)
     addCommonArgs(compareParser)
+    compareParser.add_argument(
+        "--format",
+        help="Output formatting, one of: %(choices)s",
+        metavar="FMT",
+        choices=["ascii", "json"],
+        default="ascii",
+    )
     compareParser.add_argument(
         "--metrics",
         help="Metrics to compare",
