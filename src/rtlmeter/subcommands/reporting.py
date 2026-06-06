@@ -182,12 +182,8 @@ def compareMain(args: argparse.Namespace) -> None:
         print("No cases specified exist in both runs")
         sys.exit(0)
 
-    summary: List[List[str]] = []
-
     gainStyle: Any = ("redBold", 0.9, "red", 0.95, "plain", 1.05, "green", 1.1, "greenBold")
     for step in args.steps:
-        if summary:
-            summary.append(tabulate.SEPARATING_LINE)
         for metric in args.metrics:
             metricDef = metrics.metricDef(metric)
             # Build the table
@@ -282,10 +278,8 @@ def compareMain(args: argparse.Namespace) -> None:
             table.append(["Geometric mean", "", "", "", "", meanGainStr, ""])
             if sigGains:
                 meanGain = scipy.stats.gmean(sigGains)
-                sigMeanGainStr = misc.styleByInterval(f"{meanGain:.2f}x", meanGain, *gainStyle)
-                table.append(["Geometric mean - pVal < 0.05", "", "", "", "", sigMeanGainStr, ""])
-
-            summary.append([step, f"{metricDef.header}", meanGainStr])
+                meanGainStr = misc.styleByInterval(f"{meanGain:.2f}x", meanGain, *gainStyle)
+                table.append(["Geometric mean - pVal < 0.05", "", "", "", "", meanGainStr, ""])
 
             # Print the table
             hilo = (
@@ -316,18 +310,6 @@ def compareMain(args: argparse.Namespace) -> None:
                 disable_numparse=True,
                 colalign=["left"] + ["right"] * (len(table[0]) - 1),
             )
-
-    # Print summary table
-    if summary:
-        print()
-        print(misc.styled("mean difference over all cases", style="bold"))
-        printTable(
-            summary,
-            args.format,
-            headers=["Step", "Metric", "Gain"],
-            disable_numparse=True,
-            colalign=["left", "left", "right"],
-        )
 
 
 def rawdataMain(args: argparse.Namespace) -> None:
