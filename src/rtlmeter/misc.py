@@ -21,8 +21,6 @@ from typing import Any, Dict, Final, Generator, Literal, NoReturn
 
 import termcolor
 
-Format = Literal["ascii", "github"]
-
 Style = Literal[
     "plain",
     "bold",
@@ -63,20 +61,9 @@ _STYLE_TO_TERMCOLOR: Final[Dict[Style, Dict[str, Any]]] = {
 }
 # fmt: on
 
-_format: Format = "ascii"
-
-
-def setFormat(format: Format) -> None:
-    global _format  # pylint: disable=global-statement
-    _format = format
-
 
 def styled(text: str, style: Style = "plain") -> str:
-    if _format == "ascii":
-        return termcolor.colored(text, **_STYLE_TO_TERMCOLOR[style])
-    if _format == "github":
-        return text
-    raise RuntimeError("unreachable")
+    return termcolor.colored(text, **_STYLE_TO_TERMCOLOR[style])
 
 
 def echo(message: str, style: Style = "plain") -> None:
