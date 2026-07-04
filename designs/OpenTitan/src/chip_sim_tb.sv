@@ -125,8 +125,8 @@ module chip_sim_tb;
   end
 
   always @(posedge clk_i) begin
-    if (u_sw_test_status_if.sw_test_done) begin
-      $display("Verilator sim termination requested");
+    if (u_sw_test_status_if.sw_test_done_q) begin
+      $display("%0t: Verilator sim termination requested", $time);
       $display("Your simulation wrote to 0x%h", u_sw_test_status_if.sw_test_status_addr);
       dv_test_status_pkg::dv_test_status(u_sw_test_status_if.sw_test_passed);
       $finish;

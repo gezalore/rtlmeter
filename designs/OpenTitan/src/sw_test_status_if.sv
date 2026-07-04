@@ -33,6 +33,7 @@ interface sw_test_status_if #(
   // If the sw_test_status reaches the terminal states, assert that we are done.
   bit in_terminal_state;
   bit sw_test_done;
+  bit sw_test_done_q;  // To remove race at termination
   bit sw_test_passed;
 
   // The test seq may reboot the CPU multiple times, so it may cycle through the SW test states
@@ -69,6 +70,7 @@ interface sw_test_status_if #(
         in_terminal_state = sw_test_status inside {SwTestStatusPassed, SwTestStatusFailed};
         if (in_terminal_state) num_iterations--;
         sw_test_done |= in_terminal_state && (num_iterations == 0);
+        sw_test_done_q <= sw_test_done;
 
         // Exit only when all iterations of the SW test are finished.
         if (sw_test_done) begin
