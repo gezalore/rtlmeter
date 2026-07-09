@@ -71,6 +71,7 @@ jobs:
           # Remove those that do not fit the runner memory
           sed -i "/OpenPiton:16x16/d" cases.json
           sed -i "/OpenPiton:32x32/d" cases.json
+          sed -i "/Vortex:huge/d" cases.json
           # Set output variable
           cat cases.json
           tr "\n" " " < cases.json >> "$GITHUB_OUTPUT"
