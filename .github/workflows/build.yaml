@@ -85,7 +85,6 @@ jobs:
           - g++
           - clang++
         os:
-          - ubuntu-22.04
           - ubuntu-24.04
     runs-on: ${{ matrix.os }}
     steps:
@@ -93,12 +92,9 @@ jobs:
         run: |
           sudo apt update || \
           sudo apt update
-          sudo apt install ccache mold help2man libfl-dev libsystemc-dev || \
-          sudo apt install ccache mold help2man libfl-dev libsystemc-dev
-          # Some conflict of libunwind verison on 22.04, can live without it
-          [[ "${{ matrix.os }}" == "ubuntu-22.04" ]] || \
-            sudo apt install libgoogle-perftools-dev || \
-            sudo apt install libgoogle-perftools-dev
+          PACKAGES="ccache mold libjemalloc-dev help2man libfl-dev"
+          sudo apt install $PACKAGES || \
+          sudo apt install $PACKAGES
       - name: Checkout Verilator
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7
         with:
@@ -136,11 +132,8 @@ jobs:
           - g++
           - clang++
         os:
-          - ubuntu-22.04
           - ubuntu-24.04
         case: ${{ fromJson(needs.check.outputs.cases) }}
-        exclude:
-          - { os: ubuntu-22.04, cxx: clang++ } # Seems to fill up disk space
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -154,8 +147,9 @@ jobs:
         run: |
           sudo apt update || \
           sudo apt update
-          sudo apt install ccache mold || \
-          sudo apt install ccache mold
+          PACKAGES="ccache mold libjemalloc-dev"
+          sudo apt install $PACKAGES || \
+          sudo apt install $PACKAGES
       - name: Download Verilator installation archive
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
         with:
